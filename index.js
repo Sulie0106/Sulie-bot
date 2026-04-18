@@ -16,15 +16,24 @@ const client = new Client({
 const VOUCH_CHANNEL = process.env.VOUCH_CHANNEL_ID;
 const AUCTION_CHANNEL = process.env.AUCTION_CHANNEL_ID;
 
-// 🚀 Ready
-client.once("ready", () => {
-  console.log(`🔥 Sulie Bot V3 online as ${client.user.tag}`);
+// 💰 PRICE PARSER (500k / 2m support)
+function parsePrice(input) {
+  if (!input) return 0;
 
-  console.log("VOUCH CHANNEL:", VOUCH_CHANNEL);
-  console.log("AUCTION CHANNEL:", AUCTION_CHANNEL);
+  input = input.toLowerCase();
+
+  if (input.endsWith("k")) return parseInt(input) * 1000;
+  if (input.endsWith("m")) return parseInt(input) * 1000000;
+
+  return parseInt(input);
+}
+
+// 🚀 READY
+client.once("ready", () => {
+  console.log(`🔥 Sulie Bot V4 online as ${client.user.tag}`);
 });
 
-// 🎮 Interactions
+// 🎮 INTERACTIONS
 client.on("interactionCreate", async (interaction) => {
 
   // ======================
@@ -40,27 +49,18 @@ client.on("interactionCreate", async (interaction) => {
         const user = interaction.options.getUser("user");
         const message = interaction.options.getString("message");
 
-        if (!VOUCH_CHANNEL) {
-          return interaction.editReply("❌ Vouch channel not set in .env");
-        }
-
-        const channel = await client.channels.fetch(VOUCH_CHANNEL);
-
-        if (!channel) {
-          return interaction.editReply("❌ Vouch channel not found");
-        }
-
         const embed = new EmbedBuilder()
           .setTitle("⭐ New Vouch")
           .setDescription(`${interaction.user} vouched for ${user}\n\n"${message}"`)
           .setColor("Green")
           .setTimestamp();
 
+        const channel = await client.channels.fetch(VOUCH_CHANNEL);
         await channel.send({ embeds: [embed] });
 
         await interaction.editReply("✅ Vouch sent!");
       } catch (err) {
-        console.error("VOUCH ERROR:", err);
+        console.error(err);
         await interaction.editReply("❌ Error sending vouch!");
       }
     }
@@ -71,23 +71,20 @@ client.on("interactionCreate", async (interaction) => {
         await interaction.deferReply({ ephemeral: true });
 
         const item = interaction.options.getString("item");
-        const price = interaction.options.getInteger("price");
-
-        if (!AUCTION_CHANNEL) {
-          return interaction.editReply("❌ Auction channel not set in .env");
-        }
+        const priceInput = interaction.options.getString("price");
+        const price = parsePrice(priceInput);
 
         const embed = new EmbedBuilder()
-          .setTitle("🛒 New Auction")
+          .setTitle("🛒 NEW AUCTION")
           .setDescription(
-            `**Item:** ${item}\n**Price:** ${price}\n**Seller:** ${interaction.user}`
+            `**Item:** ${item}\n**Price:** ${price.toLocaleString()} coins\n**Seller:** ${interaction.user}`
           )
           .setColor("Blue")
           .setTimestamp();
 
         const button = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
-            .setCustomId(`buy_${interaction.user.id}`)
+            .setCustomId(`buy_${interaction.user.id}_${price}`)
             .setLabel("💰 Buy Now")
             .setStyle(ButtonStyle.Success)
         );
@@ -95,10 +92,10 @@ client.on("interactionCreate", async (interaction) => {
         const channel = await client.channels.fetch(AUCTION_CHANNEL);
         await channel.send({ embeds: [embed], components: [button] });
 
-        await interaction.editReply("✅ Item listed!");
+        await interaction.editReply("✅ Auction created!");
       } catch (err) {
-        console.error("SELL ERROR:", err);
-        await interaction.editReply("❌ Error listing item!");
+        console.error(err);
+        await interaction.editReply("❌ Error creating auction!");
       }
     }
   }
@@ -107,35 +104,69 @@ client.on("interactionCreate", async (interaction) => {
   // BUY BUTTON
   // ======================
   if (interaction.isButton()) {
+
     if (interaction.customId.startsWith("buy_")) {
       try {
-        const sellerId = interaction.customId.split("_")[1];
+        const parts = interaction.customId.split("_");
+        const sellerId = parts[1];
+        const price = parts[2];
+
         const buyer = interaction.user;
         const seller = await client.users.fetch(sellerId);
 
-        await buyer.send(
-          `🛒 You bought an item!\n👉 Open a ticket and ping ${seller}`
+        const embed = new EmbedBuilder()
+          .setTitle("⚠️ TRADE CONFIRMATION")
+          .setDescription(
+            `Buyer: ${buyer}\nSeller: ${seller}\nPrice: ${price}\n\nOpen a ticket and complete the trade safely.`
+          )
+          .setColor("Red");
+
+        const row = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`confirm_${sellerId}_${buyer.id}`)
+            .setLabel("✅ Confirm Trade")
+            .setStyle(ButtonStyle.Success),
+
+          new ButtonBuilder()
+            .setCustomId(`cancel_${sellerId}_${buyer.id}`)
+            .setLabel("❌ Cancel")
+            .setStyle(ButtonStyle.Danger)
         );
 
-        await seller.send(
-          `💰 Your item was bought!\n👉 Open a ticket and ping ${buyer}`
-        );
+        await buyer.send({ embeds: [embed], components: [row] });
+        await seller.send({ embeds: [embed], components: [row] });
 
         await interaction.reply({
-          content: "✅ Check your DMs!",
+          content: "📩 Check your DMs!",
           ephemeral: true
         });
 
       } catch (err) {
-        console.error("BUY ERROR:", err);
+        console.error(err);
         await interaction.reply({
-          content: "❌ Could not send DMs (maybe closed).",
+          content: "❌ Could not send DMs",
           ephemeral: true
         });
       }
     }
+
+    // ✅ CONFIRM
+    if (interaction.customId.startsWith("confirm_")) {
+      await interaction.reply({
+        content: "✅ Trade confirmed! Open a ticket to complete it.",
+        ephemeral: true
+      });
+    }
+
+    // ❌ CANCEL
+    if (interaction.customId.startsWith("cancel_")) {
+      await interaction.reply({
+        content: "❌ Trade cancelled.",
+        ephemeral: true
+      });
+    }
   }
 });
 
-// 🔐 Login
+// 🔐 LOGIN
 client.login(process.env.DISCORD_TOKEN);
