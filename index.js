@@ -1,100 +1,85 @@
-const { Client, GatewayIntentBits } = require("discord.js");
 require("dotenv").config();
+const {
+  Client,
+  GatewayIntentBits,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+} = require("discord.js");
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
+  intents: [GatewayIntentBits.Guilds],
 });
 
-// simple in-memory storage (upgrade later to MongoDB)
-const listings = [];
-const trades = [];
-const vouches = [];
+const VOUCH_CHANNEL = process.env.VOUCH_CHANNEL_ID;
+const AUCTION_CHANNEL = process.env.AUCTION_CHANNEL_ID;
 
-client.on("ready", () => {
-  console.log(`✅ Sulie Bot V2 online as ${client.user.tag}`);
+client.once("ready", () => {
+  console.log(`🔥 Sulie Bot V3 online as ${client.user.tag}`);
 });
 
 client.on("interactionCreate", async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
+  if (interaction.isChatInputCommand()) {
 
-  const cmd = interaction.commandName;
+    // ⭐ VOUCH
+    if (interaction.commandName === "vouch") {
+      const user = interaction.options.getUser("user");
+      const message = interaction.options.getString("message");
 
-  // 🛒 SELL
-  if (cmd === "sell") {
-    const item = interaction.options.getString("item");
-    const price = interaction.options.getString("price");
+      const embed = new EmbedBuilder()
+        .setTitle("⭐ New Vouch")
+        .setDescription(`${interaction.user} vouched for ${user}\n\n"${message}"`)
+        .setColor("Green");
 
-    const listing = {
-      id: listings.length + 1,
-      item,
-      price,
-      seller: interaction.user.tag
-    };
+      const channel = await client.channels.fetch(VOUCH_CHANNEL);
+      channel.send({ embeds: [embed] });
 
-    listings.push(listing);
+      await interaction.reply({ content: "✅ Vouch sent!", ephemeral: true });
+    }
 
-    return interaction.reply(`🛒 Listed **${item}** for **${price}** (ID: ${listing.id})`);
+    // 🛒 SELL
+    if (interaction.commandName === "sell") {
+      const item = interaction.options.getString("item");
+      const price = interaction.options.getInteger("price");
+
+      const embed = new EmbedBuilder()
+        .setTitle("🛒 New Auction")
+        .setDescription(`**Item:** ${item}\n**Price:** ${price}\nSeller: ${interaction.user}`)
+        .setColor("Blue");
+
+      const button = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`buy_${interaction.user.id}`)
+          .setLabel("💰 Buy Now")
+          .setStyle(ButtonStyle.Success)
+      );
+
+      const channel = await client.channels.fetch(AUCTION_CHANNEL);
+      await channel.send({ embeds: [embed], components: [button] });
+
+      await interaction.reply({ content: "✅ Listed in auction!", ephemeral: true });
+    }
   }
 
-  // 📦 LISTINGS
-  if (cmd === "listings") {
-    if (!listings.length) return interaction.reply("📭 No listings yet.");
+  // 🔘 BUY BUTTON
+  if (interaction.isButton()) {
+    if (interaction.customId.startsWith("buy_")) {
+      const sellerId = interaction.customId.split("_")[1];
+      const buyer = interaction.user;
+      const seller = await client.users.fetch(sellerId);
 
-    return interaction.reply(
-      listings.map(l => `#${l.id} 📦 ${l.item} - 💰 ${l.price} | 👤 ${l.seller}`).join("\n")
-    );
-  }
+      // DM buyer
+      await buyer.send(`🛒 You bought an item!\n👉 Open a ticket and ping ${seller}`);
 
-  // 🤝 TRADE
-  if (cmd === "trade") {
-    const user = interaction.options.getUser("user");
-    const item = interaction.options.getString("item");
-    const price = interaction.options.getString("price");
+      // DM seller
+      await seller.send(`💰 Your item was bought!\n👉 Open a ticket and ping ${buyer}`);
 
-    const trade = {
-      id: trades.length + 1,
-      buyer: interaction.user.tag,
-      seller: user.tag,
-      item,
-      price,
-      status: "pending"
-    };
-
-    trades.push(trade);
-
-    return interaction.reply(`🤝 Trade created (#${trade.id}) between **${trade.buyer}** and **${trade.seller}**`);
-  }
-
-  // ⭐ VOUCH
-  if (cmd === "vouch") {
-    const user = interaction.options.getUser("user");
-    const msg = interaction.options.getString("message");
-
-    vouches.push({ user: user.tag, msg });
-
-    return interaction.reply(`⭐ Vouch added for **${user.tag}**`);
-  }
-
-  // 📊 REP
-  if (cmd === "rep") {
-    const user = interaction.options.getUser("user");
-
-    const count = vouches.filter(v => v.user === user.tag).length;
-
-    let level = "LOW 🔴";
-    if (count > 5) level = "MEDIUM 🟡";
-    if (count > 15) level = "HIGH 🟢";
-
-    return interaction.reply(`📊 **${user.tag}**
-⭐ Vouches: ${count}
-Trust: ${level}`);
-  }
-
-  // 📊 STATS
-  if (cmd === "stats") {
-    return interaction.reply(
-      `📊 **Sulie Market Stats**\n🛒 Listings: ${listings.length}\n🤝 Trades: ${trades.length}\n⭐ Vouches: ${vouches.length}`
-    );
+      await interaction.reply({
+        content: "✅ Check your DMs to continue the trade!",
+        ephemeral: true,
+      });
+    }
   }
 });
 
