@@ -12,52 +12,58 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
+// 🔐 Channels
 const VOUCH_CHANNEL = process.env.VOUCH_CHANNEL_ID;
 const AUCTION_CHANNEL = process.env.AUCTION_CHANNEL_ID;
 
-// 🚀 BOT START
+// 🚀 Ready
 client.once("ready", () => {
   console.log(`🔥 Sulie Bot V3 online as ${client.user.tag}`);
-  console.log("ENV VOUCH:", process.env.VOUCH_CHANNEL_ID);
+
+  console.log("VOUCH CHANNEL:", VOUCH_CHANNEL);
+  console.log("AUCTION CHANNEL:", AUCTION_CHANNEL);
 });
 
-
-// 🎮 INTERACTIONS
+// 🎮 Interactions
 client.on("interactionCreate", async (interaction) => {
 
-  // =======================
-  // 💬 SLASH COMMANDS
-  // =======================
+  // ======================
+  // SLASH COMMANDS
+  // ======================
   if (interaction.isChatInputCommand()) {
 
+    // ⭐ VOUCH
     if (interaction.commandName === "vouch") {
-  try {
-    await interaction.deferReply({ ephemeral: true });
+      try {
+        await interaction.deferReply({ ephemeral: true });
 
-    const user = interaction.options.getUser("user");
-    const message = interaction.options.getString("message");
+        const user = interaction.options.getUser("user");
+        const message = interaction.options.getString("message");
 
-    console.log("VOUCH CHANNEL ID:", process.env.VOUCH_CHANNEL_ID);
+        if (!VOUCH_CHANNEL) {
+          return interaction.editReply("❌ Vouch channel not set in .env");
+        }
 
-    const channel = await client.channels.fetch(process.env.VOUCH_CHANNEL_ID);
+        const channel = await client.channels.fetch(VOUCH_CHANNEL);
 
-    console.log("CHANNEL FOUND:", channel?.id);
+        if (!channel) {
+          return interaction.editReply("❌ Vouch channel not found");
+        }
 
-    const embed = new EmbedBuilder()
-      .setTitle("⭐ New Vouch")
-      .setDescription(`${interaction.user} vouched for ${user}\n\n"${message}"`)
-      .setColor("Green")
-      .setTimestamp();
+        const embed = new EmbedBuilder()
+          .setTitle("⭐ New Vouch")
+          .setDescription(`${interaction.user} vouched for ${user}\n\n"${message}"`)
+          .setColor("Green")
+          .setTimestamp();
 
-    await channel.send({ embeds: [embed] });
+        await channel.send({ embeds: [embed] });
 
-    await interaction.editReply("✅ Vouch sent!");
-
-  } catch (err) {
-    console.error("❌ VOUCH ERROR:", err);
-    await interaction.editReply("❌ Error sending vouch!");
-  }
-}
+        await interaction.editReply("✅ Vouch sent!");
+      } catch (err) {
+        console.error("VOUCH ERROR:", err);
+        await interaction.editReply("❌ Error sending vouch!");
+      }
+    }
 
     // 🛒 SELL
     if (interaction.commandName === "sell") {
@@ -67,9 +73,15 @@ client.on("interactionCreate", async (interaction) => {
         const item = interaction.options.getString("item");
         const price = interaction.options.getInteger("price");
 
+        if (!AUCTION_CHANNEL) {
+          return interaction.editReply("❌ Auction channel not set in .env");
+        }
+
         const embed = new EmbedBuilder()
           .setTitle("🛒 New Auction")
-          .setDescription(`**Item:** ${item}\n**Price:** ${price}\n**Seller:** ${interaction.user}`)
+          .setDescription(
+            `**Item:** ${item}\n**Price:** ${price}\n**Seller:** ${interaction.user}`
+          )
           .setColor("Blue")
           .setTimestamp();
 
@@ -83,17 +95,17 @@ client.on("interactionCreate", async (interaction) => {
         const channel = await client.channels.fetch(AUCTION_CHANNEL);
         await channel.send({ embeds: [embed], components: [button] });
 
-        await interaction.editReply("✅ Item listed in auction!");
+        await interaction.editReply("✅ Item listed!");
       } catch (err) {
-        console.error(err);
+        console.error("SELL ERROR:", err);
         await interaction.editReply("❌ Error listing item!");
       }
     }
   }
 
-  // =======================
-  // 🔘 BUY BUTTON
-  // =======================
+  // ======================
+  // BUY BUTTON
+  // ======================
   if (interaction.isButton()) {
     if (interaction.customId.startsWith("buy_")) {
       try {
@@ -101,25 +113,23 @@ client.on("interactionCreate", async (interaction) => {
         const buyer = interaction.user;
         const seller = await client.users.fetch(sellerId);
 
-        // 📩 DM BUYER
         await buyer.send(
-          `🛒 You bought an item!\n\n👉 Open a ticket and ping ${seller}\n👉 Continue the trade there`
+          `🛒 You bought an item!\n👉 Open a ticket and ping ${seller}`
         );
 
-        // 📩 DM SELLER
         await seller.send(
-          `💰 Your item was bought!\n\n👉 Open a ticket and ping ${buyer}\n👉 Continue the trade there`
+          `💰 Your item was bought!\n👉 Open a ticket and ping ${buyer}`
         );
 
         await interaction.reply({
-          content: "✅ Check your DMs to continue the trade!",
+          content: "✅ Check your DMs!",
           ephemeral: true
         });
 
       } catch (err) {
-        console.error(err);
+        console.error("BUY ERROR:", err);
         await interaction.reply({
-          content: "⚠️ Could not send DM. Make sure DMs are open!",
+          content: "❌ Could not send DMs (maybe closed).",
           ephemeral: true
         });
       }
@@ -127,5 +137,5 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
-// 🔐 LOGIN
+// 🔐 Login
 client.login(process.env.DISCORD_TOKEN);
