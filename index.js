@@ -18,7 +18,9 @@ const AUCTION_CHANNEL = process.env.AUCTION_CHANNEL_ID;
 // 🚀 BOT START
 client.once("ready", () => {
   console.log(`🔥 Sulie Bot V3 online as ${client.user.tag}`);
+  console.log("ENV VOUCH:", process.env.VOUCH_CHANNEL_ID);
 });
+
 
 // 🎮 INTERACTIONS
 client.on("interactionCreate", async (interaction) => {
