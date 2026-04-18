@@ -30,29 +30,34 @@ client.on("interactionCreate", async (interaction) => {
   // =======================
   if (interaction.isChatInputCommand()) {
 
-    // ⭐ VOUCH
     if (interaction.commandName === "vouch") {
-      try {
-        await interaction.deferReply({ ephemeral: true });
+  try {
+    await interaction.deferReply({ ephemeral: true });
 
-        const user = interaction.options.getUser("user");
-        const message = interaction.options.getString("message");
+    const user = interaction.options.getUser("user");
+    const message = interaction.options.getString("message");
 
-        const embed = new EmbedBuilder()
-          .setTitle("⭐ New Vouch")
-          .setDescription(`${interaction.user} vouched for ${user}\n\n"${message}"`)
-          .setColor("Green")
-          .setTimestamp();
+    console.log("VOUCH CHANNEL ID:", process.env.VOUCH_CHANNEL_ID);
 
-        const channel = await client.channels.fetch(VOUCH_CHANNEL);
-        await channel.send({ embeds: [embed] });
+    const channel = await client.channels.fetch(process.env.VOUCH_CHANNEL_ID);
 
-        await interaction.editReply("✅ Vouch sent!");
-      } catch (err) {
-        console.error(err);
-        await interaction.editReply("❌ Error sending vouch!");
-      }
-    }
+    console.log("CHANNEL FOUND:", channel?.id);
+
+    const embed = new EmbedBuilder()
+      .setTitle("⭐ New Vouch")
+      .setDescription(`${interaction.user} vouched for ${user}\n\n"${message}"`)
+      .setColor("Green")
+      .setTimestamp();
+
+    await channel.send({ embeds: [embed] });
+
+    await interaction.editReply("✅ Vouch sent!");
+
+  } catch (err) {
+    console.error("❌ VOUCH ERROR:", err);
+    await interaction.editReply("❌ Error sending vouch!");
+  }
+}
 
     // 🛒 SELL
     if (interaction.commandName === "sell") {
