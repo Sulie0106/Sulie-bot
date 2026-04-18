@@ -5,82 +5,120 @@ const {
   EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
-  ButtonStyle,
+  ButtonStyle
 } = require("discord.js");
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds],
+  intents: [GatewayIntentBits.Guilds]
 });
 
 const VOUCH_CHANNEL = process.env.VOUCH_CHANNEL_ID;
 const AUCTION_CHANNEL = process.env.AUCTION_CHANNEL_ID;
 
+// 🚀 BOT START
 client.once("ready", () => {
   console.log(`🔥 Sulie Bot V3 online as ${client.user.tag}`);
 });
 
+// 🎮 INTERACTIONS
 client.on("interactionCreate", async (interaction) => {
+
+  // =======================
+  // 💬 SLASH COMMANDS
+  // =======================
   if (interaction.isChatInputCommand()) {
 
     // ⭐ VOUCH
     if (interaction.commandName === "vouch") {
-      const user = interaction.options.getUser("user");
-      const message = interaction.options.getString("message");
+      try {
+        await interaction.deferReply({ ephemeral: true });
 
-      const embed = new EmbedBuilder()
-        .setTitle("⭐ New Vouch")
-        .setDescription(`${interaction.user} vouched for ${user}\n\n"${message}"`)
-        .setColor("Green");
+        const user = interaction.options.getUser("user");
+        const message = interaction.options.getString("message");
 
-      const channel = await client.channels.fetch(VOUCH_CHANNEL);
-      channel.send({ embeds: [embed] });
+        const embed = new EmbedBuilder()
+          .setTitle("⭐ New Vouch")
+          .setDescription(`${interaction.user} vouched for ${user}\n\n"${message}"`)
+          .setColor("Green")
+          .setTimestamp();
 
-      await interaction.reply({ content: "✅ Vouch sent!", ephemeral: true });
+        const channel = await client.channels.fetch(VOUCH_CHANNEL);
+        await channel.send({ embeds: [embed] });
+
+        await interaction.editReply("✅ Vouch sent!");
+      } catch (err) {
+        console.error(err);
+        await interaction.editReply("❌ Error sending vouch!");
+      }
     }
 
     // 🛒 SELL
     if (interaction.commandName === "sell") {
-      const item = interaction.options.getString("item");
-      const price = interaction.options.getInteger("price");
+      try {
+        await interaction.deferReply({ ephemeral: true });
 
-      const embed = new EmbedBuilder()
-        .setTitle("🛒 New Auction")
-        .setDescription(`**Item:** ${item}\n**Price:** ${price}\nSeller: ${interaction.user}`)
-        .setColor("Blue");
+        const item = interaction.options.getString("item");
+        const price = interaction.options.getInteger("price");
 
-      const button = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId(`buy_${interaction.user.id}`)
-          .setLabel("💰 Buy Now")
-          .setStyle(ButtonStyle.Success)
-      );
+        const embed = new EmbedBuilder()
+          .setTitle("🛒 New Auction")
+          .setDescription(`**Item:** ${item}\n**Price:** ${price}\n**Seller:** ${interaction.user}`)
+          .setColor("Blue")
+          .setTimestamp();
 
-      const channel = await client.channels.fetch(AUCTION_CHANNEL);
-      await channel.send({ embeds: [embed], components: [button] });
+        const button = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`buy_${interaction.user.id}`)
+            .setLabel("💰 Buy Now")
+            .setStyle(ButtonStyle.Success)
+        );
 
-      await interaction.reply({ content: "✅ Listed in auction!", ephemeral: true });
+        const channel = await client.channels.fetch(AUCTION_CHANNEL);
+        await channel.send({ embeds: [embed], components: [button] });
+
+        await interaction.editReply("✅ Item listed in auction!");
+      } catch (err) {
+        console.error(err);
+        await interaction.editReply("❌ Error listing item!");
+      }
     }
   }
 
+  // =======================
   // 🔘 BUY BUTTON
+  // =======================
   if (interaction.isButton()) {
     if (interaction.customId.startsWith("buy_")) {
-      const sellerId = interaction.customId.split("_")[1];
-      const buyer = interaction.user;
-      const seller = await client.users.fetch(sellerId);
+      try {
+        const sellerId = interaction.customId.split("_")[1];
+        const buyer = interaction.user;
+        const seller = await client.users.fetch(sellerId);
 
-      // DM buyer
-      await buyer.send(`🛒 You bought an item!\n👉 Open a ticket and ping ${seller}`);
+        // 📩 DM BUYER
+        await buyer.send(
+          `🛒 You bought an item!\n\n👉 Open a ticket and ping ${seller}\n👉 Continue the trade there`
+        );
 
-      // DM seller
-      await seller.send(`💰 Your item was bought!\n👉 Open a ticket and ping ${buyer}`);
+        // 📩 DM SELLER
+        await seller.send(
+          `💰 Your item was bought!\n\n👉 Open a ticket and ping ${buyer}\n👉 Continue the trade there`
+        );
 
-      await interaction.reply({
-        content: "✅ Check your DMs to continue the trade!",
-        ephemeral: true,
-      });
+        await interaction.reply({
+          content: "✅ Check your DMs to continue the trade!",
+          ephemeral: true
+        });
+
+      } catch (err) {
+        console.error(err);
+        await interaction.reply({
+          content: "⚠️ Could not send DM. Make sure DMs are open!",
+          ephemeral: true
+        });
+      }
     }
   }
 });
 
+// 🔐 LOGIN
 client.login(process.env.DISCORD_TOKEN);
