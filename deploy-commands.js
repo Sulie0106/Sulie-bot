@@ -15,16 +15,23 @@ const commands = [
     .setDescription("Sell an item")
     .addStringOption(option =>
       option.setName("item").setDescription("Item").setRequired(true))
-    .addIntegerOption(option =>
-      option.setName("price").setDescription("Price").setRequired(true)),
+    .addStringOption(option =>
+      option.setName("price").setDescription("Price (e.g. 500k, 2m)").setRequired(true)),
 ].map(cmd => cmd.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 
 (async () => {
-  await rest.put(
-    Routes.applicationCommands(process.env.CLIENT_ID),
-    { body: commands }
-  );
-  console.log("✅ V3 commands deployed");
+  try {
+    console.log("⏳ Deploying V4 commands...");
+
+    await rest.put(
+      Routes.applicationCommands(process.env.CLIENT_ID),
+      { body: commands }
+    );
+
+    console.log("✅ V4 commands deployed");
+  } catch (err) {
+    console.error(err);
+  }
 })();
