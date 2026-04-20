@@ -12,6 +12,15 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
+// 🔥 DYNAMIC STATUS LIST
+const statuses = [
+  "💰 Sulie Market",
+  "🛒 Trading deals",
+  "🎉 Giveaways live",
+  "📊 Managing loans",
+  "🔥 DSMP Marketplace"
+];
+
 // 🔐 Channels
 const VOUCH_CHANNEL = process.env.VOUCH_CHANNEL_ID;
 const AUCTION_CHANNEL = process.env.AUCTION_CHANNEL_ID;
@@ -28,9 +37,25 @@ function parsePrice(input) {
   return parseInt(input);
 }
 
-// 🚀 READY
-client.once("ready", () => {
+// 🚀 READY + DYNAMIC STATUS
+client.once("clientReady", () => {
   console.log(`🔥 Sulie Bot V4 online as ${client.user.tag}`);
+
+  let i = 0;
+
+  setInterval(() => {
+    client.user.setPresence({
+      activities: [
+        {
+          name: statuses[i],
+          type: 0 // Playing
+        }
+      ],
+      status: "online"
+    });
+
+    i = (i + 1) % statuses.length;
+  }, 5000);
 });
 
 // 🎮 INTERACTIONS
