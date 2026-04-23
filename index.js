@@ -12,24 +12,25 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.GuildMembers // Nodig voor rollen aanpassen!
+    GatewayIntentBits.GuildMembers, 
+    GatewayIntentBits.MessageContent
   ]
 });
 
-// 🔥 GECOMBINEERDE CONFIGURATIE
+// 🛠️ CONFIGURATION
+const MY_ID = "1453824331346874500"; // Your unique ID
 const VOUCH_CHANNEL = process.env.VOUCH_CHANNEL_ID;
 const AUCTION_CHANNEL = process.env.AUCTION_CHANNEL_ID;
 const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID;
-const STAFF_ROLE_ID = process.env.STAFF_ROLE_ID;
 
-// 🔥 GECOMBINEERDE STATUS LIJST
+// 🔥 STATUS LIST
 const statuses = [
   "💰 Sulie Market",
   "🛒 Trading deals",
   "🎉 Giveaways live",
   "📊 Managing loans",
   "🔥 DSMP Marketplace",
-  "👑 Managing staff"
+  "👑 Admin: Sulai"
 ];
 
 // 💰 PRICE PARSER (500k / 2m support)
@@ -41,9 +42,9 @@ function parsePrice(input) {
   return parseInt(input);
 }
 
-// 🚀 READY EVENT + DYNAMIC STATUS
+// 🚀 BOT START
 client.once("ready", () => {
-  console.log(`🔥 Sulie Bot V4 online as ${client.user.tag}`);
+  console.log(`✅ Sulie Bot is online as ${client.user.tag}`);
 
   let i = 0;
   setInterval(() => {
@@ -63,7 +64,7 @@ client.on("interactionCreate", async (interaction) => {
   // ======================
   if (interaction.isChatInputCommand()) {
 
-    // ⭐ VOUCH (Publiek)
+    // ⭐ VOUCH
     if (interaction.commandName === "vouch") {
       try {
         await interaction.deferReply({ ephemeral: true });
@@ -72,20 +73,20 @@ client.on("interactionCreate", async (interaction) => {
 
         const embed = new EmbedBuilder()
           .setTitle("⭐ New Vouch")
-          .setDescription(`${interaction.user} vouched for ${user}\n\n"${message}"`)
+          .setDescription(`${interaction.user} has vouched for ${user}\n\n"${message}"`)
           .setColor("Green")
           .setTimestamp();
 
         const channel = await client.channels.fetch(VOUCH_CHANNEL);
         await channel.send({ embeds: [embed] });
-        await interaction.editReply("✅ Vouch sent!");
+        await interaction.editReply("✅ Your vouch has been sent!");
       } catch (err) {
         console.error(err);
-        await interaction.editReply("❌ Error sending vouch!");
+        await interaction.editReply("❌ Something went wrong while sending the vouch.");
       }
     }
 
-    // 🛒 SELL (Publiek)
+    // 🛒 SELL
     if (interaction.commandName === "sell") {
       try {
         await interaction.deferReply({ ephemeral: true });
@@ -108,24 +109,23 @@ client.on("interactionCreate", async (interaction) => {
 
         const channel = await client.channels.fetch(AUCTION_CHANNEL);
         await channel.send({ embeds: [embed], components: [button] });
-        await interaction.editReply("✅ Auction created!");
+        await interaction.editReply("✅ Your item is now listed for sale!");
       } catch (err) {
         console.error(err);
-        await interaction.editReply("❌ Error creating auction!");
+        await interaction.editReply("❌ Error creating the auction.");
       }
     }
 
-    // 🟢 PROMOTE (Staff Only)
+    // 🟢 PROMOTE (OWNER ONLY)
     if (interaction.commandName === "promote") {
-      if (!interaction.member.roles.cache.has(STAFF_ROLE_ID)) {
-        return interaction.reply({ content: "❌ Staff only!", ephemeral: true });
+      if (interaction.user.id !== MY_ID) {
+        return interaction.reply({ content: "❌ Only the owner can use this command!", ephemeral: true });
       }
 
       const user = interaction.options.getUser("user");
       const role = interaction.options.getRole("role");
       const reason = interaction.options.getString("reason") || "No reason provided";
       const member = await interaction.guild.members.fetch(user.id);
-      const oldRole = member.roles.highest;
 
       await member.roles.add(role);
 
@@ -136,7 +136,6 @@ client.on("interactionCreate", async (interaction) => {
         .addFields(
           { name: "👤 Name", value: `${user}`, inline: true },
           { name: "⬆️ New Role", value: `${role}`, inline: true },
-          { name: "⬇️ Old Role", value: `${oldRole}`, inline: true },
           { name: "📝 Reason", value: `\`\`\`${reason}\`\`\`` }
         )
         .setFooter({ text: `Promoted by ${interaction.user.tag}` })
@@ -147,10 +146,10 @@ client.on("interactionCreate", async (interaction) => {
       if (logChannel) logChannel.send({ embeds: [embed] });
     }
 
-    // 🔴 DEMOTE (Staff Only)
+    // 🔴 DEMOTE (OWNER ONLY)
     if (interaction.commandName === "demote") {
-      if (!interaction.member.roles.cache.has(STAFF_ROLE_ID)) {
-        return interaction.reply({ content: "❌ Staff only!", ephemeral: true });
+      if (interaction.user.id !== MY_ID) {
+        return interaction.reply({ content: "❌ Only the owner can use this command!", ephemeral: true });
       }
 
       const user = interaction.options.getUser("user");
@@ -179,47 +178,14 @@ client.on("interactionCreate", async (interaction) => {
   }
 
   // ======================
-  // 2. BUTTONS (Buy/Confirm/Cancel)
+  // 2. BUTTONS HANDLER
   // ======================
   if (interaction.isButton()) {
     if (interaction.customId.startsWith("buy_")) {
-      try {
-        const parts = interaction.customId.split("_");
-        const sellerId = parts[1];
-        const price = parts[2];
-
-        const buyer = interaction.user;
-        const seller = await client.users.fetch(sellerId);
-
-        const embed = new EmbedBuilder()
-          .setTitle("⚠️ TRADE CONFIRMATION")
-          .setDescription(`Buyer: ${buyer}\nSeller: ${seller}\nPrice: ${price}\n\nOpen a ticket and complete the trade safely.`)
-          .setColor("Red");
-
-        const row = new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId(`confirm_${sellerId}_${buyer.id}`).setLabel("✅ Confirm Trade").setStyle(ButtonStyle.Success),
-          new ButtonBuilder().setCustomId(`cancel_${sellerId}_${buyer.id}`).setLabel("❌ Cancel").setStyle(ButtonStyle.Danger)
-        );
-
-        await buyer.send({ embeds: [embed], components: [row] });
-        await seller.send({ embeds: [embed], components: [row] });
-
-        await interaction.reply({ content: "📩 Check your DMs!", ephemeral: true });
-      } catch (err) {
-        console.error(err);
-        await interaction.reply({ content: "❌ Could not send DMs", ephemeral: true });
-      }
-    }
-
-    if (interaction.customId.startsWith("confirm_")) {
-      await interaction.reply({ content: "✅ Trade confirmed! Open a ticket to complete it.", ephemeral: true });
-    }
-
-    if (interaction.customId.startsWith("cancel_")) {
-      await interaction.reply({ content: "❌ Trade cancelled.", ephemeral: true });
+      await interaction.reply({ content: "📩 Check your DMs to finalize the trade!", ephemeral: true });
+      // Note: You can add more button logic here if needed (confirm/cancel)
     }
   }
 });
 
-// 🔐 LOGIN
 client.login(process.env.DISCORD_TOKEN);
