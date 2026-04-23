@@ -28,9 +28,9 @@ const statuses = [
   "💰 Sulie Market",
   "🛒 Trading deals",
   "🎉 Giveaways live",
-  "📊 Managing loans",
+  "📊 Managing Server",
   "🔥 DSMP Marketplace",
-  "👑 Admin: Sulai"
+  "👑 Admin: Mrsulie"
 ];
 
 // 💰 PRICE PARSER (500k / 2m support)
